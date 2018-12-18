@@ -1,6 +1,7 @@
 'use strict';
 
 var Scope = require('../src/scope');
+var _ = require('lodash');
 
 describe('Scope', function() {
   it('can be constructed and used as an object', function() {
@@ -146,5 +147,29 @@ describe('digest', function() {
     );
 
     expect((function() { scope.$digest(); })).toThrow();
+  });
+
+  it('ends the digest when the last watch is clean', function() {
+    var watchExecutions = 0;
+    //Creates an array of numbers 0-9.
+    scope.array = _.range(10);
+
+    //Creates a watcher for each number in the array.
+    _.times(10, function(i) {
+      scope.$watch(
+        function(scope) {
+          watchExecutions++;
+          return scope.array[i];
+        },
+        function(newValue, oldValue, scope) {}
+      );
+    });
+
+    scope.$digest();
+    expect(watchExecutions).toBe(20);
+
+    scope.array[0] = 'random string';
+    scope.$digest();
+    expect(watchExecutions).toBe(31);
   });
 });
