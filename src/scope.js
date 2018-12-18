@@ -21,9 +21,10 @@ Scope.prototype.$digest = function() {
   _.forEach(this.$$watchers, function(watcher) {
     newValue = watcher.watchFn(self);
     oldValue = watcher.last;
-    if (newValue !== oldValue) {
+    if (newValue !== oldValue || !watcher.hasOwnProperty('last')) {
+      watcher.listenerFn(newValue,
+        ((!watcher.hasOwnProperty('last')) ? newValue : oldValue), self);
       watcher.last = newValue;
-      watcher.listenerFn(newValue, oldValue, self);
     }
   });
 };
