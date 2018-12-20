@@ -24,19 +24,23 @@ Scope.prototype.$$digestOnce = function() {
   var newValue, oldValue, areEqual, dirty;
 
   _.forEach(self.$$watchers, function(watcher) {
-    newValue = watcher.watchFn(self);
-    oldValue = watcher.last;
-    areEqual = self.$$areEqual(newValue, oldValue, watcher.valueEq);
-    if (!areEqual || !watcher.hasOwnProperty('last')) {
-      watcher.listenerFn(newValue,
-        ((!watcher.hasOwnProperty('last')) ? newValue : oldValue), self);
-      watcher.last = watcher.valueEq ? _.cloneDeep(newValue) : newValue;
-      self.$$lastDirtyWatch = watcher;
-      dirty = true;
-    } else {
-      if (self.$$lastDirtyWatch === watcher) {
-        return false;
+    try {
+      newValue = watcher.watchFn(self);
+      oldValue = watcher.last;
+      areEqual = self.$$areEqual(newValue, oldValue, watcher.valueEq);
+      if (!areEqual || !watcher.hasOwnProperty('last')) {
+        watcher.listenerFn(newValue,
+          ((!watcher.hasOwnProperty('last')) ? newValue : oldValue), self);
+        watcher.last = watcher.valueEq ? _.cloneDeep(newValue) : newValue;
+        self.$$lastDirtyWatch = watcher;
+        dirty = true;
+      } else {
+        if (self.$$lastDirtyWatch === watcher) {
+          return false;
+        }
       }
+    } catch(e) {
+      console.log(e);
     }
   });
 
