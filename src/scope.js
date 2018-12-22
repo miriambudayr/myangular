@@ -7,23 +7,29 @@ function Scope() {
 }
 
 Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
+  var self = this;
   var watcher = {
     watchFn: watchFn,
     listenerFn: listenerFn || function() {},
     valueEq: !!valueEq
   };
 
-  this.$$watchers.push(watcher);
-  //Reset the $$lastDirtyWatch property so no watches that are added during $digest cycles
-  //are run.
+  this.$$watchers.unshift(watcher);
   this.$$lastDirtyWatch = null;
+  return function() {
+    //Get index of watcher.
+    var i = self.$$watchers.indexOf(watcher);
+    if (i >= 0) {
+      self.$$watchers.splice(i, 1);
+    }
+  };
 };
 
 Scope.prototype.$$digestOnce = function() {
   var self = this;
   var newValue, oldValue, areEqual, dirty;
 
-  _.forEach(self.$$watchers, function(watcher) {
+  _.forEachRight(self.$$watchers, function(watcher, i) {
     try {
       newValue = watcher.watchFn(self);
       oldValue = watcher.last;
