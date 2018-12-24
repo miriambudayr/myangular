@@ -70,6 +70,14 @@ Scope.prototype.$digest = function() {
   } while (dirty);
 };
 
+Scope.prototype.$apply = function(expr) {
+  try {
+    this.$eval(expr);
+  } finally {
+    this.$digest();
+  }
+};
+
 Scope.prototype.$eval = function(expr, locals) {
   return expr(this, locals);
 };
