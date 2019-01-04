@@ -8,6 +8,7 @@ function Scope() {
   this.$$phase = null;
   this.$$applyAsyncQueue = [];
   this.$$applyAsyncId = null;
+  this.$$postDigestQueue = [];
 }
 
 Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
@@ -84,6 +85,10 @@ Scope.prototype.$digest = function() {
     }
   } while (dirty || this.$$asyncQueue.length);
 
+  while (this.$$postDigestQueue.length) {
+    this.$$postDigestQueue.shift()();
+  }
+  
   this.$clearPhase();
 };
 
@@ -124,6 +129,13 @@ Scope.prototype.$applyAsync = function(expr) {
       self.$apply(self.$$flushApplyAsync.bind(self));
     }, 0);
   }
+};
+
+Scope.prototype.$$postDigest = function(expr) {
+  var self = this;
+  self.$$postDigestQueue.push(function() {
+    self.$eval(expr);
+  });
 };
 
 Scope.prototype.$$flushApplyAsync = function() {
