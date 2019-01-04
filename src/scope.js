@@ -76,8 +76,12 @@ Scope.prototype.$digest = function() {
 
   do {
     while (this.$$asyncQueue.length) {
-      var asyncTask = this.$$asyncQueue.shift();
-      asyncTask.scope.$eval(asyncTask.expression);
+      try {
+        var asyncTask = this.$$asyncQueue.shift();
+        asyncTask.scope.$eval(asyncTask.expression);
+      } catch(e) {
+        console.log(e);
+      }
     }
     dirty = this.$$digestOnce();
     if ((dirty || this.$$asyncQueue.length) && !(ttl--)) {
@@ -86,9 +90,13 @@ Scope.prototype.$digest = function() {
   } while (dirty || this.$$asyncQueue.length);
 
   while (this.$$postDigestQueue.length) {
-    this.$$postDigestQueue.shift()();
+    try {
+      this.$$postDigestQueue.shift()();
+    } catch(e) {
+      console.log(e);
+    }
   }
-  
+
   this.$clearPhase();
 };
 
@@ -140,9 +148,13 @@ Scope.prototype.$$postDigest = function(expr) {
 
 Scope.prototype.$$flushApplyAsync = function() {
   while (this.$$applyAsyncQueue.length) {
-    this.$$applyAsyncQueue.shift()();
-    this.$$applyAsyncId = null;
+    try {
+      this.$$applyAsyncQueue.shift()();
+    } catch(e) {
+      console.log(e);
+    }
   }
+  this.$$applyAsyncId = null;
 };
 
 Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {

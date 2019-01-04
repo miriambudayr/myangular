@@ -535,6 +535,27 @@ describe('$evalAsync', function() {
       done();
     }, 50);
   });
+
+  it('catches exceptions in $evalAsync', function(done) {
+    scope.aValue = 'abc';
+    scope.counter = 0;
+
+    scope.$watch(
+      function(scope) { return scope.aValue; },
+      function(newValue, oldValue, scope) {
+        scope.counter++;
+      }
+    );
+
+    scope.$evalAsync(function(scope) {
+      throw 'Error';
+    });
+
+    setTimeout(function() {
+      expect(scope.counter).toBe(1);
+      done();
+    }, 50);
+  });
 });
 
 describe('$applyAsync', function() {
@@ -642,9 +663,29 @@ describe('$applyAsync', function() {
       done();
     }, 50);
   });
+
+  it('catches exceptions in $applyAsync', function(done) {
+
+    scope.$applyAsync(function(scope) {
+      throw 'Error';
+    });
+
+    scope.$applyAsync(function(scope) {
+      throw 'Error';
+    });
+
+    scope.$applyAsync(function(scope) {
+      scope.applied = true;
+    });
+
+    setTimeout(function() {
+      expect(scope.applied).toBe(true);
+      done();
+    }, 50);
+  });
 });
 
-describe('$postDigest', function() {
+describe('$$postDigest', function() {
   var scope;
 
   beforeEach(function() {
@@ -667,7 +708,7 @@ describe('$postDigest', function() {
     expect(scope.counter).toBe(1);
   });
 
-  fit('does not include $$postDigest in the digest', function() {
+  it('does not include $$postDigest in the digest', function() {
     scope.aValue = 'original value';
 
     scope.$$postDigest(function() {
@@ -688,5 +729,20 @@ describe('$postDigest', function() {
 
     scope.$digest();
     expect(scope.watchedValue).toBe('changed value');
+  });
+
+  it('catches exceptions in $$postDigest', function() {
+    var didRun = false;
+
+    scope.$$postDigest(function() {
+      throw 'Error';
+    });
+
+    scope.$$postDigest(function() {
+      didRun = true;
+    });
+
+    scope.$digest();
+    expect(didRun).toBe(true);
   });
 });
