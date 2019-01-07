@@ -208,15 +208,6 @@ Scope.prototype.$watchGroup = function(arrayOfWatchFns, listenerFn) {
   };
 };
 
-Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
-  if (valueEq) {
-    return _.isEqual(newValue, oldValue);
-  } else {
-    return newValue === oldValue ||
-      (newValue + '' === 'NaN' && oldValue + '' === 'NaN');
-  }
-};
-
 Scope.prototype.$beginPhase = function(phase) {
   if (this.$$phase) {
     throw this.$$phase + 'already in progress.';
@@ -228,5 +219,20 @@ Scope.prototype.$clearPhase = function() {
   this.$$phase = null;
 };
 
+Scope.prototype.$new = function() {
+  var ChildScope = function() {};
+  ChildScope.prototype = this;
+  var child = new ChildScope();
+  return child;
+};
+
+Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
+  if (valueEq) {
+    return _.isEqual(newValue, oldValue);
+  } else {
+    return newValue === oldValue ||
+      (newValue + '' === 'NaN' && oldValue + '' === 'NaN');
+  }
+};
 
 module.exports = Scope;
