@@ -220,7 +220,9 @@ Scope.prototype.$clearPhase = function() {
 };
 
 Scope.prototype.$new = function() {
-  var ChildScope = function() {};
+  var ChildScope = function() {
+    this.$$watchers = [];
+  };
   ChildScope.prototype = this;
   var child = new ChildScope();
   return child;
