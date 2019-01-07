@@ -157,6 +157,57 @@ Scope.prototype.$$flushApplyAsync = function() {
   this.$$applyAsyncId = null;
 };
 
+
+Scope.prototype.$watchGroup = function(arrayOfWatchFns, listenerFn) {
+  var self = this;
+  var oldValues = new Array(arrayOfWatchFns.length);
+  var newValues = new Array(arrayOfWatchFns.length);
+  var arrayOfRemovalFns = [];
+  var changeReactionScheduled = false;
+  var firstInvocation = true;
+
+  if (arrayOfWatchFns.length === 0) {
+    var shouldCall = true;
+    self.$evalAsync(function() {
+      if (shouldCall) {
+        listenerFn(newValues, newValues, self);
+      }
+    });
+    return function() {
+      shouldCall = false;
+    };
+  }
+
+  function watchGroupListener()  {
+    if (firstInvocation) {
+      firstInvocation = false;
+      listenerFn(newValues, newValues, self);
+    } else {
+      listenerFn(newValues, oldValues, self);
+    }
+    changeReactionScheduled = false;
+  }
+
+  _.forEach(arrayOfWatchFns, function(watchFn, i) {
+    var removalFn = self.$watch(watchFn, function(newValue, oldValue, scope) {
+      oldValues[i] = oldValue;
+      newValues[i] = newValue;
+      if (!changeReactionScheduled) {
+        changeReactionScheduled = true;
+        self.$evalAsync(watchGroupListener);
+      }
+    });
+
+    arrayOfRemovalFns.push(removalFn);
+  });
+
+  return function() {
+    _.forEach(arrayOfRemovalFns, function(removalFn) {
+      removalFn();
+    });
+  };
+};
+
 Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
   if (valueEq) {
     return _.isEqual(newValue, oldValue);
