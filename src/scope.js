@@ -10,6 +10,7 @@ function Scope() {
   this.$$applyAsyncId = null;
   this.$$postDigestQueue = [];
   this.$$children = [];
+  this.$$root = this;
 }
 
 Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
@@ -20,8 +21,8 @@ Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
     valueEq: !!valueEq
   };
 
-  self.$$watchers.unshift(watcher);
-  self.$$lastDirtyWatch = null;
+  this.$$watchers.unshift(watcher);
+  this.$$root.$$lastDirtyWatch = null;
 
   return function() {
     //Get index of watcher.
@@ -29,7 +30,7 @@ Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
     if (i >= 0) {
       self.$$watchers.splice(i, 1);
     }
-    self.$$lastDirtyWatch = null;
+    self.$$root.$$lastDirtyWatch = null;
   };
 };
 
@@ -46,7 +47,7 @@ Scope.prototype.$$digestOnce = function() {
           oldValue = watcher.last;
           areEqual = scope.$$areEqual(newValue, oldValue, watcher.valueEq);
           if (!areEqual || !watcher.hasOwnProperty('last')) {
-            self.$$lastDirtyWatch = watcher;
+            self.$$root.$$lastDirtyWatch = watcher;
             watcher.listenerFn(newValue,
               ((!watcher.hasOwnProperty('last')) ? newValue : oldValue), scope);
             watcher.last = watcher.valueEq ? _.cloneDeep(newValue) : newValue;
@@ -68,7 +69,7 @@ Scope.prototype.$$digestOnce = function() {
 Scope.prototype.$digest = function() {
   var ttl = 10;
   var dirty;
-  this.$$lastDirtyWatch = null;
+  this.$$root.$$lastDirtyWatch = null;
 
   this.$beginPhase('$digest');
 
@@ -109,7 +110,7 @@ Scope.prototype.$apply = function(expr) {
     this.$eval(expr);
   } finally {
     this.$clearPhase();
-    this.$digest();
+    this.$$root.$digest();
   }
 };
 
@@ -122,7 +123,7 @@ Scope.prototype.$evalAsync = function(expr) {
   if (!self.$$phase && !self.$$asyncQueue.length) {
     setTimeout(function() {
       if (self.$$asyncQueue.length) {
-        self.$digest();
+        self.$$root.$digest();
       }
     }, 0);
   }
