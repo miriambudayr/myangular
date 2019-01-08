@@ -9,6 +9,7 @@ function Scope() {
   this.$$applyAsyncQueue = [];
   this.$$applyAsyncId = null;
   this.$$postDigestQueue = [];
+  this.$$children = [];
 }
 
 Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
@@ -34,31 +35,33 @@ Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
 
 Scope.prototype.$$digestOnce = function() {
   var self = this;
+  var continueLoop = true;
   var newValue, oldValue, areEqual, dirty;
 
-  _.forEachRight(self.$$watchers, function(watcher, i) {
-    try {
-      if (watcher) {
-        newValue = watcher.watchFn(self);
-        oldValue = watcher.last;
-        areEqual = self.$$areEqual(newValue, oldValue, watcher.valueEq);
-        if (!areEqual || !watcher.hasOwnProperty('last')) {
-          self.$$lastDirtyWatch = watcher;
-          watcher.listenerFn(newValue,
-            ((!watcher.hasOwnProperty('last')) ? newValue : oldValue), self);
-          watcher.last = watcher.valueEq ? _.cloneDeep(newValue) : newValue;
-          dirty = true;
-        } else {
-          if (self.$$lastDirtyWatch === watcher) {
+  this.$$everyScope(function(scope) {
+    _.forEachRight(scope.$$watchers, function(watcher) {
+      try {
+        if (watcher) {
+          newValue = watcher.watchFn(scope);
+          oldValue = watcher.last;
+          areEqual = scope.$$areEqual(newValue, oldValue, watcher.valueEq);
+          if (!areEqual || !watcher.hasOwnProperty('last')) {
+            self.$$lastDirtyWatch = watcher;
+            watcher.listenerFn(newValue,
+              ((!watcher.hasOwnProperty('last')) ? newValue : oldValue), scope);
+            watcher.last = watcher.valueEq ? _.cloneDeep(newValue) : newValue;
+            dirty = true;
+          } else if (self.$$lastDirtyWatch === watcher) {
+            continueLoop = false;
             return false;
           }
         }
+      } catch (e) {
+        console.error(e);
       }
-    } catch(e) {
-      console.log(e);
-    }
+    });
+    return continueLoop;
   });
-
   return dirty;
 };
 
@@ -222,9 +225,11 @@ Scope.prototype.$clearPhase = function() {
 Scope.prototype.$new = function() {
   var ChildScope = function() {
     this.$$watchers = [];
+    this.$$children = [];
   };
   ChildScope.prototype = this;
   var child = new ChildScope();
+  this.$$children.push(child);
   return child;
 };
 
@@ -234,6 +239,18 @@ Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
   } else {
     return newValue === oldValue ||
       (newValue + '' === 'NaN' && oldValue + '' === 'NaN');
+  }
+};
+
+Scope.prototype.$$everyScope = function(fn) {
+  var result;
+  if (fn(this)) {
+    result = this.$$children.every(function(child) {
+      return child.$$everyScope(fn);
+    });
+    return result;
+  } else {
+    return;
   }
 };
 
