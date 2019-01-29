@@ -99,11 +99,16 @@ Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
           changeCount++;
           oldValue = [];
         }
-
         if (oldValue.length !== newValue.length) {
           changeCount++;
           oldValue.length = newValue.length;
         }
+        _.forEach(newValue, function(newItem, i) {
+          if (!self.$$areEqual(newItem, oldValue[i], false)) {
+            changeCount++;
+            oldValue[i] = newItem;
+          }
+        });
       } else {
 
       }
