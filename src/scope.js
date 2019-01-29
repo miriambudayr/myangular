@@ -34,9 +34,93 @@ Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
   };
 };
 
+Scope.prototype.$watchGroup = function(arrayOfWatchFns, listenerFn) {
+  var self = this;
+  var oldValues = new Array(arrayOfWatchFns.length);
+  var newValues = new Array(arrayOfWatchFns.length);
+  var arrayOfRemovalFns = [];
+  var changeReactionScheduled = false;
+  var firstInvocation = true;
+
+  if (arrayOfWatchFns.length === 0) {
+    var shouldCall = true;
+    self.$evalAsync(function() {
+      if (shouldCall) {
+        listenerFn(newValues, newValues, self);
+      }
+    });
+    return function() {
+      shouldCall = false;
+    };
+  }
+
+  function watchGroupListener()  {
+    if (firstInvocation) {
+      firstInvocation = false;
+      listenerFn(newValues, newValues, self);
+    } else {
+      listenerFn(newValues, oldValues, self);
+    }
+    changeReactionScheduled = false;
+  }
+
+  _.forEach(arrayOfWatchFns, function(watchFn, i) {
+    var removalFn = self.$watch(watchFn, function(newValue, oldValue, scope) {
+      oldValues[i] = oldValue;
+      newValues[i] = newValue;
+      if (!changeReactionScheduled) {
+        changeReactionScheduled = true;
+        self.$evalAsync(watchGroupListener);
+      }
+    });
+
+    arrayOfRemovalFns.push(removalFn);
+  });
+
+  return function() {
+    _.forEach(arrayOfRemovalFns, function(removalFn) {
+      removalFn();
+    });
+  };
+};
+
+Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
+  var self = this;
+  var newValue;
+  var oldValue;
+  var changeCount = 0;
+
+  var internalWatchFn = function(scope) {
+    newValue = watchFn(scope);
+
+    if (_.isObject(newValue)) {
+      if (_.isArray(newValue)) {
+        if (!_.isArray(oldValue)) {
+          changeCount++;
+          oldValue = [];
+        }
+      } else {
+
+      }
+    } else {
+      if (!self.$$areEqual(newValue, oldValue, false)) {
+        changeCount++;
+      }
+      oldValue = newValue;
+    }
+    return changeCount;
+  };
+
+  var internalListenerFn = function() {
+    listenerFn(newValue, oldValue, self);
+  };
+
+  return this.$watch(internalWatchFn, internalListenerFn);
+};
+
 Scope.prototype.$$digestOnce = function() {
   var self = this;
-  var continueLoop = true;
+  var continueRecursing = true;
   var newValue, oldValue, areEqual, dirty;
 
   this.$$everyScope(function(scope) {
@@ -53,7 +137,7 @@ Scope.prototype.$$digestOnce = function() {
             watcher.last = watcher.valueEq ? _.cloneDeep(newValue) : newValue;
             dirty = true;
           } else if (self.$$lastDirtyWatch === watcher) {
-            continueLoop = false;
+            continueRecursing = false;
             return false;
           }
         }
@@ -61,7 +145,7 @@ Scope.prototype.$$digestOnce = function() {
         console.error(e);
       }
     });
-    return continueLoop;
+    return continueRecursing;
   });
   return dirty;
 };
@@ -161,57 +245,6 @@ Scope.prototype.$$flushApplyAsync = function() {
   this.$$root.$$applyAsyncId = null;
 };
 
-
-Scope.prototype.$watchGroup = function(arrayOfWatchFns, listenerFn) {
-  var self = this;
-  var oldValues = new Array(arrayOfWatchFns.length);
-  var newValues = new Array(arrayOfWatchFns.length);
-  var arrayOfRemovalFns = [];
-  var changeReactionScheduled = false;
-  var firstInvocation = true;
-
-  if (arrayOfWatchFns.length === 0) {
-    var shouldCall = true;
-    self.$evalAsync(function() {
-      if (shouldCall) {
-        listenerFn(newValues, newValues, self);
-      }
-    });
-    return function() {
-      shouldCall = false;
-    };
-  }
-
-  function watchGroupListener()  {
-    if (firstInvocation) {
-      firstInvocation = false;
-      listenerFn(newValues, newValues, self);
-    } else {
-      listenerFn(newValues, oldValues, self);
-    }
-    changeReactionScheduled = false;
-  }
-
-  _.forEach(arrayOfWatchFns, function(watchFn, i) {
-    var removalFn = self.$watch(watchFn, function(newValue, oldValue, scope) {
-      oldValues[i] = oldValue;
-      newValues[i] = newValue;
-      if (!changeReactionScheduled) {
-        changeReactionScheduled = true;
-        self.$evalAsync(watchGroupListener);
-      }
-    });
-
-    arrayOfRemovalFns.push(removalFn);
-  });
-
-  return function() {
-    _.forEach(arrayOfRemovalFns, function(removalFn) {
-      removalFn();
-    });
-  };
-};
-
 Scope.prototype.$beginPhase = function(phase) {
   if (this.$$phase) {
     throw this.$$phase + 'already in progress.';
@@ -231,7 +264,7 @@ Scope.prototype.$new = function(isolated, parent) {
     child.$$root = parent.$$root;
     child.$$asyncQueue = parent.$$asyncQueue;
     child.$$applyAsyncQueue = parent.$$applyAsyncQueue;
-    child.$$applyAsyncId = parent.$$applyAsyncId;
+    // child.$$applyAsyncId = parent.$$applyAsyncId;
     child.$$postDigestQueue = parent.$$postDigestQueue;
   } else {
     var ChildScope = function() {};
@@ -242,7 +275,22 @@ Scope.prototype.$new = function(isolated, parent) {
   parent.$$children.push(child);
   child.$$watchers = [];
   child.$$children = [];
+  child.$parent = parent;
   return child;
+};
+
+Scope.prototype.$destroy = function() {
+  var self = this;
+
+  if (self.$parent) {
+    var siblings = self.$parent.$$children;
+    var index = siblings.indexOf(this);
+    if (index >= 0) {
+      siblings.splice(index, 1);
+    }
+  }
+
+  delete self.$$watchers;
 };
 
 Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
@@ -257,12 +305,11 @@ Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
 Scope.prototype.$$everyScope = function(fn) {
   var result;
   if (fn(this)) {
-    result = this.$$children.every(function(child) {
+    return this.$$children.every(function(child) {
       return child.$$everyScope(fn);
     });
-    return result;
   } else {
-    return;
+    return false;
   }
 };
 
