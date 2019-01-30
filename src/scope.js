@@ -88,7 +88,6 @@ Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
   var self = this;
   var newValue;
   var oldValue;
-  var propertiesCount;
   var changeCount = 0;
 
   var internalWatchFn = function(scope) {
