@@ -94,7 +94,7 @@ Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
     newValue = watchFn(scope);
 
     if (_.isObject(newValue)) {
-      if (_.isArray(newValue)) {
+      if (isArrayLike(newValue)) {
         if (!_.isArray(oldValue)) {
           changeCount++;
           oldValue = [];
@@ -311,6 +311,16 @@ Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
       (newValue + '' === 'NaN' && oldValue + '' === 'NaN');
   }
 };
+
+function isArrayLike(obj) {
+  var length;
+
+  if (_.isNull(obj) || _.isUndefined(obj)) {
+    return false;
+  }
+  length = obj.length;
+  return _.isNumber(length);
+}
 
 Scope.prototype.$$everyScope = function(fn) {
   var result;
