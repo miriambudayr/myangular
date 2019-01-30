@@ -88,6 +88,7 @@ Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
   var self = this;
   var newValue;
   var oldValue;
+  var propertiesCount;
   var changeCount = 0;
 
   var internalWatchFn = function(scope) {
@@ -114,6 +115,17 @@ Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
           changeCount++;
           oldValue = {};
         }
+
+        if (_.keys(oldValue).length !== _.keys(newValue).length) {
+          changeCount++;
+        }
+
+        _.forOwn(newValue, function(value, key) {
+          if (!self.$$areEqual(value, oldValue[key], false)) {
+            changeCount++;
+            oldValue[key] = value;
+          }
+        });
       }
     } else {
       if (!self.$$areEqual(newValue, oldValue, false)) {
