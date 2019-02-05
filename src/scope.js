@@ -86,8 +86,11 @@ Scope.prototype.$watchGroup = function(arrayOfWatchFns, listenerFn) {
 
 Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
   var self = this;
+  var firstInvocation = true;
   var newValue;
   var oldValue;
+  var veryOldValue;
+  var trackVeryOldValue = (listenerFn.length > 0);
   var oldLength;
   var changeCount = 0;
 
@@ -134,7 +137,6 @@ Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
           }
         });
 
-        //Only run if size of oldValue is larger than size of newValue.
         if (oldLength > newLength) {
           changeCount++;
           _.forOwn(oldValue, function(oldVal, key) {
@@ -155,7 +157,15 @@ Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
   };
 
   var internalListenerFn = function() {
-    listenerFn(newValue, oldValue, self);
+    if (firstInvocation) {
+      listenerFn(newValue, newValue, self);
+      firstInvocation = false;
+    } else {
+      listenerFn(newValue, veryOldValue, self);
+    }
+    if (trackVeryOldValue) {
+      veryOldValue = _.clone(newValue);
+    }
   };
 
   return this.$watch(internalWatchFn, internalListenerFn);
