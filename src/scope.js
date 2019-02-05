@@ -10,6 +10,7 @@ function Scope() {
   this.$$applyAsyncId = null;
   this.$$postDigestQueue = [];
   this.$$children = [];
+  this.$$listeners = {};
   this.$$root = this;
 }
 
@@ -171,6 +172,14 @@ Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
   return this.$watch(internalWatchFn, internalListenerFn);
 };
 
+Scope.prototype.$on = function(eventName, listenerFn) {
+  var listeners = this.$$listeners[eventName];
+  if (!listeners) {
+    this.$$listeners[eventName] = listeners = [];
+  }
+  listeners.push(listenerFn);
+};
+
 Scope.prototype.$$digestOnce = function() {
   var self = this;
   var continueRecursing = true;
@@ -329,6 +338,7 @@ Scope.prototype.$new = function(isolated, parent) {
   child.$$watchers = [];
   child.$$children = [];
   child.$parent = parent;
+  child.$$listeners = {};
   return child;
 };
 
