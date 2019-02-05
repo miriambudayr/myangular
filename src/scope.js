@@ -88,9 +88,11 @@ Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
   var self = this;
   var newValue;
   var oldValue;
+  var oldLength;
   var changeCount = 0;
 
   var internalWatchFn = function(scope) {
+    var newLength;
     newValue = watchFn(scope);
 
     if (_.isObject(newValue)) {
@@ -113,25 +115,35 @@ Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
         if (!_.isObject(oldValue) || isArrayLike(oldValue)) {
           changeCount++;
           oldValue = {};
+          oldLength = 0;
         }
 
-        if (_.keys(oldValue).length !== _.keys(newValue).length) {
+        newLength = 0;
+
+        _.forOwn(newValue, function(newValue, key) {
+          newLength++;
+          if (oldValue.hasOwnProperty(key)) {
+            if (!self.$$areEqual(newValue, oldValue[key], false)) {
+              changeCount++;
+              oldValue[key] = newValue;
+            }
+          } else {
+            changeCount++;
+            oldLength++;
+            oldValue[key] = newValue;
+          }
+        });
+
+        //Only run if size of oldValue is larger than size of newValue.
+        if (oldLength > newLength) {
           changeCount++;
+          _.forOwn(oldValue, function(oldVal, key) {
+            if (!newValue.hasOwnProperty(key)) {
+              oldLength--;
+              delete oldValue[key];
+            }
+          });
         }
-
-        _.forOwn(newValue, function(value, key) {
-          if (!self.$$areEqual(value, oldValue[key], false)) {
-            changeCount++;
-            oldValue[key] = value;
-          }
-        });
-
-        _.forOwn(oldValue, function(value, key) {
-          if (!newValue.hasOwnProperty(key)) {
-            changeCount++;
-            delete oldValue[key];
-          }
-        });
       }
     } else {
       if (!self.$$areEqual(newValue, oldValue, false)) {
