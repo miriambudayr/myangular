@@ -180,20 +180,24 @@ Scope.prototype.$on = function(eventName, listenerFn) {
   listeners.push(listenerFn);
 };
 
-Scope.prototype.$$fireEventOnScope = function(eventName) {
+Scope.prototype.$$fireEventOnScope = function(eventName, additionalArgs) {
   var eventObject = {name: eventName};
   var listeners = this.$$listeners[eventName] || [];
+  var listenerArgs = _.concat(eventObject, additionalArgs);
+
   _.forEach(listeners, function(listenerFn) {
-    listenerFn(eventObject);
+    listenerFn.apply(this, listenerArgs);
   });
 };
 
 Scope.prototype.$emit = function(eventName) {
-  this.$$fireEventOnScope(eventName);
+  var additionalArgs = _.tail(arguments);
+  this.$$fireEventOnScope(eventName, additionalArgs);
 };
 
 Scope.prototype.$broadcast = function(eventName) {
-  this.$$fireEventOnScope(eventName);
+  var additionalArgs = _.tail(arguments);
+  this.$$fireEventOnScope(eventName, additionalArgs);
 };
 
 Scope.prototype.$$digestOnce = function() {
