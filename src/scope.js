@@ -181,9 +181,10 @@ Scope.prototype.$on = function(eventName, listenerFn) {
 };
 
 Scope.prototype.$$fireEventOnScope = function(eventName) {
+  var eventObject = {name: eventName};
   var listeners = this.$$listeners[eventName] || [];
   _.forEach(listeners, function(listenerFn) {
-    listenerFn();
+    listenerFn(eventObject);
   });
 };
 
