@@ -180,6 +180,20 @@ Scope.prototype.$on = function(eventName, listenerFn) {
   listeners.push(listenerFn);
 };
 
+Scope.prototype.$emit = function(eventName) {
+  var listeners = this.$$listeners[eventName] || [];
+  _.forEach(listeners, function(listenerFn) {
+    listenerFn();
+  });
+};
+
+Scope.prototype.$broadcast = function(eventName) {
+  var listeners = this.$$listeners[eventName] || [];
+  _.forEach(listeners, function(listenerFn) {
+    listenerFn();
+  });
+};
+
 Scope.prototype.$$digestOnce = function() {
   var self = this;
   var continueRecursing = true;
