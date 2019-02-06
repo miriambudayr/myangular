@@ -1669,7 +1669,7 @@ describe('Scope', function() {
       scope.$on('someOtherEvent', listener3);
 
       expect(scope.$$listeners).toEqual({
-        someEvent: [listener1, listener2],
+        someEvent: [listener2, listener1],
         someOtherEvent: [listener3]
       });
     });
@@ -1741,6 +1741,31 @@ describe('Scope', function() {
 
         expect(returnedEvent).toBeDefined();
         expect(returnedEvent.name).toEqual('someEvent');
+      });
+
+      it('can be deregistered '+method, function() {
+        var listener = jasmine.createSpy();
+        var deregister = scope.$on('someEvent', listener);
+
+        deregister();
+
+        scope[method]('someEvent');
+        expect(listener).not.toHaveBeenCalled();
+      });
+
+      it('does not skip the next listener when removed on '+method, function() {
+        var deregister;
+
+        var listener = function() {
+          deregister();
+        };
+        var nextListener = jasmine.createSpy();
+
+        deregister = scope.$on('someEvent', listener);
+        scope.$on('someEvent', nextListener);
+
+        scope[method]('someEvent');
+        expect(nextListener).toHaveBeenCalled();
       });
     });
   });

@@ -173,11 +173,20 @@ Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
 };
 
 Scope.prototype.$on = function(eventName, listenerFn) {
+  var self = this;
   var listeners = this.$$listeners[eventName];
   if (!listeners) {
     this.$$listeners[eventName] = listeners = [];
   }
-  listeners.push(listenerFn);
+  listeners.unshift(listenerFn);
+
+  return function() {
+    //Get index of listener.
+    var i = listeners.indexOf(listenerFn);
+    if (i >= 0) {
+      self.$$listeners[eventName].splice(i, 1);
+    }
+  };
 };
 
 Scope.prototype.$$fireEventOnScope = function(eventName, additionalArgs) {
@@ -185,8 +194,8 @@ Scope.prototype.$$fireEventOnScope = function(eventName, additionalArgs) {
   var listeners = this.$$listeners[eventName] || [];
   var listenerArgs = _.concat(eventObject, additionalArgs);
 
-  _.forEach(listeners, function(listenerFn) {
-    listenerFn.apply(this, listenerArgs);
+  _.forEachRight(listeners, function(listenerFn) {
+    listenerFn.apply(null, listenerArgs);
   });
 
   return eventObject;
