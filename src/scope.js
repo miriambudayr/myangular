@@ -211,7 +211,13 @@ Scope.prototype.$emit = function(eventName) {
 Scope.prototype.$broadcast = function(eventName) {
   var event = {name: eventName};
   var listenerArgs = [event].concat(_.tail(arguments));
-  this.$$fireEventOnScope(eventName, listenerArgs);
+  var scope = this;
+
+  scope.$$everyScope(function(scope) {
+    scope.$$fireEventOnScope(eventName, listenerArgs);
+
+    return true;
+  });
   return event;
 };
 
@@ -414,7 +420,7 @@ function isArrayLike(obj) {
 Scope.prototype.$$everyScope = function(fn) {
   var result;
   if (fn(this)) {
-    return this.$$children.every(function(child) {
+    return this.$$children.every(function(child, index) {
       return child.$$everyScope(fn);
     });
   } else {
