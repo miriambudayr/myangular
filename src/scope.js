@@ -193,7 +193,11 @@ Scope.prototype.$$fireEventOnScope = function(eventName, listenerArgs) {
   var listeners = this.$$listeners[eventName] || [];
 
   _.forEachRight(listeners, function(listenerFn) {
-    listenerFn.apply(null, listenerArgs);
+    try {
+      listenerFn.apply(null, listenerArgs);
+    } catch(e) {
+      console.log(e);
+    }
   });
 };
 
@@ -228,9 +232,6 @@ Scope.prototype.$broadcast = function(eventName) {
     name: eventName,
     targetScope: this,
     currentScope: this,
-    stopPropagation: function() {
-      propagationStopped = true;
-    },
     preventDefault: function() {
       this.defaultPrevented = true;
     }
@@ -423,6 +424,7 @@ Scope.prototype.$destroy = function() {
   }
 
   delete self.$$watchers;
+  this.$$listeners = {};
 };
 
 Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {

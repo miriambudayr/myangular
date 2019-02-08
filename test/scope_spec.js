@@ -1777,6 +1777,18 @@ describe('Scope', function() {
         var event = scope[method]('someEvent');
         expect(event.defaultPrevented).toBe(true);
       });
+
+      it('does not stop on exceptions on '+method, function() {
+        var listener1 = function(event) {
+          throw 'listener1 throwing an exception';
+        };
+        var listener2 = jasmine.createSpy();
+        scope.$on('someEvent', listener1);
+        scope.$on('someEvent', listener2);
+
+        scope[method]('someEvent');
+        expect(listener2).toHaveBeenCalled();
+      });
     });
 
     it('propagates up the scope hierarchy on $emit', function() {
@@ -1963,6 +1975,15 @@ describe('Scope', function() {
 
       scope.$destroy();
       expect(listener).toHaveBeenCalled();
+    });
+
+    it('no longer calls listeners after destroyed', function() {
+      var listener = jasmine.createSpy();
+
+      scope.$on('myEvent', listener);
+      scope.$destroy();
+      scope.$emit('myEvent');
+      expect(listener).not.toHaveBeenCalled();
     });
   });
 });
