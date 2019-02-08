@@ -205,6 +205,9 @@ Scope.prototype.$emit = function(eventName) {
     currentScope: this,
     stopPropagation: function() {
       propagationStopped = true;
+    },
+    preventDefault: function() {
+      this.defaultPrevented = true;
     }
   };
   var listenerArgs = [event].concat(_.tail(arguments));
@@ -224,7 +227,13 @@ Scope.prototype.$broadcast = function(eventName) {
   var event = {
     name: eventName,
     targetScope: this,
-    currentScope: this
+    currentScope: this,
+    stopPropagation: function() {
+      propagationStopped = true;
+    },
+    preventDefault: function() {
+      this.defaultPrevented = true;
+    }
   };
   var listenerArgs = [event].concat(_.tail(arguments));
   var scope = this;
