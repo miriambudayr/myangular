@@ -412,6 +412,8 @@ Scope.prototype.$new = function(isolated, parent) {
 Scope.prototype.$destroy = function() {
   var self = this;
 
+  self.$broadcast('$destroy');
+
   if (self.$parent) {
     var siblings = self.$parent.$$children;
     var index = siblings.indexOf(this);
