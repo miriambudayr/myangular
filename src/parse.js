@@ -18,7 +18,9 @@ evaluates expression represented in the tree.
 */
 
 function parse(expr) {
-  //return...
+  var lexer = new Lexer();
+  var parser = new Parser(lexer);
+  return parser.parser(expr);
 }
 
 function Lexer() {}
