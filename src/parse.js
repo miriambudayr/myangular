@@ -41,7 +41,8 @@ Lexer.prototype.lex = function(text) {
   //Conditionals set up to deal with different kinds of characters.
   while (this.index < this.text.length) {
     this.ch = this.text.charAt(this.index);
-    if (this.isNumber(this.ch)) {
+    if (this.isNumber(this.ch) ||
+        (this.ch === '.' && this.isNumber(this.peek()))) {
       //Delegate to helper method readNumber.
       this.readNumber();
     } else {
@@ -57,6 +58,18 @@ Lexer.prototype.isNumber = function(ch) {
 };
 
 /*
+Returns the next character in the text without moving
+the current character index forward.
+*/
+Lexer.prototype.peek = function() {
+  if (this.index < (this.text.length - 1)) {
+    return this.text.charAt(this.index + 1);
+  } else {
+    return false;
+  }
+};
+
+/*
 Iterates over text character by character.
 Builds up number as it goes.
 */
@@ -64,7 +77,7 @@ Lexer.prototype.readNumber = function() {
   var number = '';
   while (this.index < this.text.length) {
     var ch = this.text.charAt(this.index);
-    if (this.isNumber(ch)) {
+    if (this.isNumber(ch) || ch === '.') {
       number += ch;
     } else {
       break;
@@ -135,6 +148,7 @@ ASTCompiler.prototype.compile = function(text) {
 
 ASTCompiler.prototype.recurse = function(ast) {
   switch (ast.type) {
+    //Generate the return statement for whole expression.
     case AST.Program:
       this.state.body.push('return ', this.recurse(ast.body), ';');
     case AST.Literal:
