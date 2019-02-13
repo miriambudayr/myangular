@@ -57,6 +57,11 @@ Lexer.prototype.isNumber = function(ch) {
   return '0' <= ch && ch <= '9';
 };
 
+//Texts for a character that is allowed to come after the e character in scientific notation. +, -, or number.
+Lexer.prototype.isExpOperator = function(ch) {
+  return ch === '-' || ch === '+' || this.isNumber(ch);
+};
+
 /*
 Returns the next character in the text without moving
 the current character index forward.
@@ -80,11 +85,22 @@ Lexer.prototype.readNumber = function() {
     if (this.isNumber(ch) || ch === '.') {
       number += ch;
     } else {
-      break;
+      var nextCh = this.peek();
+      var previousCh = this.text.charAt(number.length - 1);
+      if ((ch === 'e' || ch === 'E') && this.isExpOperator(nextCh)) {
+        number += ch;
+      } else if (this.isExpOperator(ch) && (previousCh === 'e' || previousCh === 'E') &&
+                   nextCh && this.isNumber(nextCh)) {
+        number += ch;
+      } else if (this.isExpOperator(ch) && previousCh === 'e' &&
+                   (!nextCh || !this.isNumber(nextCh))) {
+        throw 'Invalid exponent';
+      } else {
+        break;
+      }
     }
     this.index++;
   }
-
   this.tokens.push({
     text: number,
     value: Number(number)
@@ -151,6 +167,7 @@ ASTCompiler.prototype.recurse = function(ast) {
     //Generate the return statement for whole expression.
     case AST.Program:
       this.state.body.push('return ', this.recurse(ast.body), ';');
+      break;
     case AST.Literal:
       return ast.value;
   }
