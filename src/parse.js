@@ -1,4 +1,5 @@
 'use strict';
+var _ = require('lodash');
 /*
 Four objects do the work of turning expression strings into functions.
 -Lexer: takes original expression string and returns array of tokens parsed from that string.
@@ -10,6 +11,16 @@ evaluates expression represented in the tree.
 -Parser: responsible for combining the low-level steps above. Delegates heavy lifting to Lexer, AST Builder, and AST Compiler.
 */
 
+
+var ESCAPES = {
+  'n': '\n',
+  'f': '\f',
+  'r': '\r',
+  't': '\t',
+  'v': '\v',
+  '\'': '\'',
+  '"': '"'
+};
 
 /*
 -External-facing function.
@@ -45,33 +56,14 @@ Lexer.prototype.lex = function(text) {
         (this.ch === '.' && this.isNumber(this.peek()))) {
       //Delegate to helper method readNumber.
       this.readNumber();
+    } else if (this.ch === '"'|| this.ch === '\'') {
+      this.readString(this.ch);
     } else {
       throw 'Unexpected next character: ' + this.ch;
     }
   }
 
   return this.tokens;
-};
-
-Lexer.prototype.isNumber = function(ch) {
-  return '0' <= ch && ch <= '9';
-};
-
-//Texts for a character that is allowed to come after the e character in scientific notation. +, -, or number.
-Lexer.prototype.isExpOperator = function(ch) {
-  return ch === '-' || ch === '+' || this.isNumber(ch);
-};
-
-/*
-Returns the next character in the text without moving
-the current character index forward.
-*/
-Lexer.prototype.peek = function() {
-  if (this.index < (this.text.length - 1)) {
-    return this.text.charAt(this.index + 1);
-  } else {
-    return false;
-  }
 };
 
 /*
@@ -105,6 +97,67 @@ Lexer.prototype.readNumber = function() {
     text: number,
     value: Number(number)
   });
+};
+
+Lexer.prototype.readString = function(quote) {
+  var string = '';
+  var escape = false;
+  this.index++;
+  while (this.index < this.text.length) {
+    var ch = this.text.charAt(this.index);
+    if (escape) {
+      if (ch === 'u') {
+        var hex = this.text.substring(this.index + 1, this.index + 5);
+        if (!hex.match(/[\da-f]{4}/i)) {
+          throw 'Invalid unicode escape';
+        }
+        this.index +=4;
+        string += String.fromCharCode(parseInt(hex, 16));
+      } else {
+        var replacement = ESCAPES[ch];
+        if (replacement) {
+          string += replacement;
+        } else {
+          string += ch;
+        }
+      }
+      escape = false;
+    } else if (ch === quote) {
+      this.index++;
+      this.tokens.push({
+        text: string,
+        value: string
+      });
+      return;
+    } else if (ch === '\\') {
+      escape = true;
+    } else {
+      string += ch;
+    }
+    this.index++;
+  }
+  throw 'Unmatched quote';
+};
+
+Lexer.prototype.isNumber = function(ch) {
+  return '0' <= ch && ch <= '9';
+};
+
+//Texts for a character that is allowed to come after the e character in scientific notation. +, -, or number.
+Lexer.prototype.isExpOperator = function(ch) {
+  return ch === '-' || ch === '+' || this.isNumber(ch);
+};
+
+/*
+Returns the next character in the text without moving
+the current character index forward.
+*/
+Lexer.prototype.peek = function() {
+  if (this.index < (this.text.length - 1)) {
+    return this.text.charAt(this.index + 1);
+  } else {
+    return false;
+  }
 };
 
 /*
@@ -169,8 +222,24 @@ ASTCompiler.prototype.recurse = function(ast) {
       this.state.body.push('return ', this.recurse(ast.body), ';');
       break;
     case AST.Literal:
-      return ast.value;
+      return this.escape(ast.value);
   }
+};
+
+ASTCompiler.prototype.escape = function(value) {
+  if (_.isString(value)) {
+    return '\'' +
+      value.replace(this.stringEscapeRegex, this.stringEscapeFn) +
+      '\'';
+  } else {
+    return value;
+  }
+};
+
+ASTCompiler.prototype.stringEscapeRegex = /[^ a-zA-Z0-9]/g;
+
+ASTCompiler.prototype.stringEscapeFn = function(c) {
+  return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
 };
 
 //Constructs the complete parsing pipeline. Takes Lexer as an argument.
