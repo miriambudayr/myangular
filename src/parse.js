@@ -46,20 +46,22 @@ During iteration, it forms collection of tokens the string includes.
 Lexer.prototype.lex = function(text) {
   this.text = text;
   this.index = 0;
-  this.ch = undefined;
+  this.character = undefined;
   this.tokens = [];
 
   //Conditionals set up to deal with different kinds of characters.
   while (this.index < this.text.length) {
-    this.ch = this.text.charAt(this.index);
-    if (this.isNumber(this.ch) ||
-        (this.ch === '.' && this.isNumber(this.peek()))) {
+    this.character = this.text.charAt(this.index);
+    if (this.isNumber(this.character) ||
+        (this.character === '.' && this.isNumber(this.peek()))) {
       //Delegate to helper method readNumber.
       this.readNumber();
-    } else if (this.ch === '"'|| this.ch === '\'') {
-      this.readString(this.ch);
+    } else if (this.character === '"'|| this.character === '\'') {
+      this.readString(this.character);
+    } else if (this.isIdentifier(this.character)) {
+      this.readIdentifier();
     } else {
-      throw 'Unexpected next character: ' + this.ch;
+      throw 'Unexpected next character: ' + this.character;
     }
   }
 
@@ -73,19 +75,19 @@ Builds up number as it goes.
 Lexer.prototype.readNumber = function() {
   var number = '';
   while (this.index < this.text.length) {
-    var ch = this.text.charAt(this.index);
-    if (this.isNumber(ch) || ch === '.') {
-      number += ch;
+    var character = this.text.charAt(this.index);
+    if (this.isNumber(character) || character === '.') {
+      number += character;
     } else {
-      var nextCh = this.peek();
-      var previousCh = this.text.charAt(number.length - 1);
-      if ((ch === 'e' || ch === 'E') && this.isExpOperator(nextCh)) {
-        number += ch;
-      } else if (this.isExpOperator(ch) && (previousCh === 'e' || previousCh === 'E') &&
-                   nextCh && this.isNumber(nextCh)) {
-        number += ch;
-      } else if (this.isExpOperator(ch) && previousCh === 'e' &&
-                   (!nextCh || !this.isNumber(nextCh))) {
+      var nextCharacter = this.peek();
+      var previousCharacter = this.text.charAt(number.length - 1);
+      if ((character === 'e' || character === 'E') && this.isExpOperator(nextCharacter)) {
+        number += character;
+      } else if (this.isExpOperator(character) && (previousCharacter === 'e' || previousCharacter === 'E') &&
+                   nextCharacter && this.isNumber(nextCharacter)) {
+        number += character;
+      } else if (this.isExpOperator(character) && previousCharacter === 'e' &&
+                   (!nextCharacter || !this.isNumber(nextCharacter))) {
         throw 'Invalid exponent';
       } else {
         break;
@@ -104,9 +106,9 @@ Lexer.prototype.readString = function(quote) {
   var escape = false;
   this.index++;
   while (this.index < this.text.length) {
-    var ch = this.text.charAt(this.index);
+    var character = this.text.charAt(this.index);
     if (escape) {
-      if (ch === 'u') {
+      if (character === 'u') {
         var hex = this.text.substring(this.index + 1, this.index + 5);
         if (!hex.match(/[\da-f]{4}/i)) {
           throw 'Invalid unicode escape';
@@ -114,38 +116,61 @@ Lexer.prototype.readString = function(quote) {
         this.index +=4;
         string += String.fromCharCode(parseInt(hex, 16));
       } else {
-        var replacement = ESCAPES[ch];
+        var replacement = ESCAPES[character];
         if (replacement) {
           string += replacement;
         } else {
-          string += ch;
+          string += character;
         }
       }
       escape = false;
-    } else if (ch === quote) {
+    } else if (character === quote) {
       this.index++;
       this.tokens.push({
         text: string,
         value: string
       });
       return;
-    } else if (ch === '\\') {
+    } else if (character === '\\') {
       escape = true;
     } else {
-      string += ch;
+      string += character;
     }
     this.index++;
   }
   throw 'Unmatched quote';
 };
 
-Lexer.prototype.isNumber = function(ch) {
-  return '0' <= ch && ch <= '9';
+Lexer.prototype.readIdentifier = function() {
+  var text = '';
+  while (this.index < this.text.length) {
+    var character = this.text.charAt(this.index);
+    if (this.isIdentifier(character) || this.isNumber(character)) {
+      text += character;
+    } else {
+      break;
+    }
+    this.index++;
+  }
+
+  var token = {text: text};
+  this.tokens.push(token);
+};
+
+
+Lexer.prototype.isIdentifier = function(character) {
+  return (character >= 'a' && character <= 'z') ||
+         (character >= 'A' || character <= 'Z') ||
+          character === '_'  || character === '$';
+};
+
+Lexer.prototype.isNumber = function(character) {
+  return '0' <= character && character <= '9';
 };
 
 //Texts for a character that is allowed to come after the e character in scientific notation. +, -, or number.
-Lexer.prototype.isExpOperator = function(ch) {
-  return ch === '-' || ch === '+' || this.isNumber(ch);
+Lexer.prototype.isExpOperator = function(character) {
+  return character === '-' || character === '+' || this.isNumber(character);
 };
 
 /*
@@ -178,11 +203,26 @@ AST.prototype.ast = function(text) {
 };
 
 AST.prototype.program = function() {
-  return {type: AST.Program, body: this.constant()};
+  // return {type: AST.Program, body: this.constant()};
+  return {type: AST.Program, body: this.primary()};
 };
 
 AST.prototype.constant = function() {
   return {type: AST.Literal, value: this.tokens[0].value};
+};
+
+/*
+Intermediate function between program and constant.
+Primary token can be one of our predefined constants or
+some other constant from our previous implementation.
+*/
+AST.prototype.primary = function() {
+  var what = AST;
+  if (this.constants.hasOwnProperty(this.tokens[0].text)) {
+    return this.constants[this.tokens[0].text];
+  } else {
+    return this.constant();
+  }
 };
 
 /*
@@ -192,6 +232,13 @@ what kind of JS code to generate.
 */
 AST.Program = 'Program';
 AST.Literal = 'Literal';
+
+//Make AST aware that certain kinds of constant tokens represent predefined literals.
+AST.prototype.constants = {
+  'null': {type: AST.Literal, value: null},
+  'true': {type: AST.Literal, value: true},
+  'false': {type: AST.Literal, value: false}
+};
 
 //Takes astBuilder as an argument.
 function ASTCompiler(astBuilder) {
@@ -231,6 +278,8 @@ ASTCompiler.prototype.escape = function(value) {
     return '\'' +
       value.replace(this.stringEscapeRegex, this.stringEscapeFn) +
       '\'';
+  } else if (_.isNull(value)) {
+    return 'null';
   } else {
     return value;
   }
