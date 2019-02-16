@@ -60,6 +60,8 @@ Lexer.prototype.lex = function(text) {
       this.readString(this.character);
     } else if (this.isIdentifier(this.character)) {
       this.readIdentifier();
+    } else if (this.isWhitespace(this.character)) {
+      this.index++;
     } else {
       throw 'Unexpected next character: ' + this.character;
     }
@@ -171,6 +173,15 @@ Lexer.prototype.isNumber = function(character) {
 //Texts for a character that is allowed to come after the e character in scientific notation. +, -, or number.
 Lexer.prototype.isExpOperator = function(character) {
   return character === '-' || character === '+' || this.isNumber(character);
+};
+
+/*
+The characters we consider to be whitespace are the space, carriage return, horizontal and
+vertical tabs, newline, and non-breaking space.
+*/
+Lexer.prototype.isWhitespace = function(character) {
+  return character === ' ' || character === '\r' || ch === '\t' ||
+         character === '\n' || character === '\v' || character === '\u00A0';
 };
 
 /*
