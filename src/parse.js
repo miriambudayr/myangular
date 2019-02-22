@@ -58,6 +58,11 @@ Lexer.prototype.lex = function(text) {
       this.readNumber();
     } else if (this.character === '"'|| this.character === '\'') {
       this.readString(this.character);
+    } else if (this.character === '[' || this.character === ']' || this.character === ',') {
+      this.tokens.push({
+        text: this.character
+      });
+      this.index++;
     } else if (this.isIdentifier(this.character)) {
       this.readIdentifier();
     } else if (this.isWhitespace(this.character)) {
@@ -162,7 +167,7 @@ Lexer.prototype.readIdentifier = function() {
 
 Lexer.prototype.isIdentifier = function(character) {
   return (character >= 'a' && character <= 'z') ||
-         (character >= 'A' || character <= 'Z') ||
+         (character >= 'A' && character <= 'Z') ||
           character === '_'  || character === '$';
 };
 
@@ -180,7 +185,7 @@ The characters we consider to be whitespace are the space, carriage return, hori
 vertical tabs, newline, and non-breaking space.
 */
 Lexer.prototype.isWhitespace = function(character) {
-  return character === ' ' || character === '\r' || ch === '\t' ||
+  return character === ' ' || character === '\r' || character === '\t' ||
          character === '\n' || character === '\v' || character === '\u00A0';
 };
 
@@ -218,22 +223,73 @@ AST.prototype.program = function() {
   return {type: AST.Program, body: this.primary()};
 };
 
-AST.prototype.constant = function() {
-  return {type: AST.Literal, value: this.tokens[0].value};
-};
-
 /*
 Intermediate function between program and constant.
 Primary token can be one of our predefined constants or
 some other constant from our previous implementation.
 */
 AST.prototype.primary = function() {
-  var what = AST;
-  if (this.constants.hasOwnProperty(this.tokens[0].text)) {
-    return this.constants[this.tokens[0].text];
+  if (this.expect('[')) {
+    return this.arrayDeclaration();
+  } else if (this.constants.hasOwnProperty(this.tokens[0].text)) {
+    return this.constants[this.consume().text];
   } else {
     return this.constant();
   }
+};
+
+/*
+Checks if the next token is what we expect it to be,
+and returns it if it is.
+*/
+AST.prototype.expect = function(e) {
+  var token = this.peek(e);
+  if (token) {
+    return this.tokens.shift();
+  }
+};
+
+/*
+Similar to expect but does not consume the tokens it looks at.
+*/
+AST.prototype.peek = function(e) {
+  if (this.tokens.length > 0) {
+    var text = this.tokens[0].text;
+    if (text === e || !e) {
+      return this.tokens[0];
+    }
+  }
+};
+
+AST.prototype.constant = function() {
+  // return {type: AST.Literal, value: this.tokens[0].value};
+  return {type: AST.Literal, value: this.consume().value};
+};
+
+/*
+Consume the tokens related to an array and construct the array AST node.
+*/
+AST.prototype.arrayDeclaration = function() {
+  var elements = [];
+
+  if (!this.peek(']')) {
+    do {
+      if (this.peek(']')) {
+        break;
+      }
+      elements.push(this.primary());
+    } while (this.expect(','));
+  }
+  this.consume(']');
+  return {type: AST.ArrayExpression, elements: elements};
+};
+
+AST.prototype.consume = function(e) {
+  var token = this.expect(e);
+  if (!token) {
+    throw 'Unexpected. Expecting: ' + e;
+  }
+  return token;
 };
 
 /*
@@ -243,6 +299,7 @@ what kind of JS code to generate.
 */
 AST.Program = 'Program';
 AST.Literal = 'Literal';
+AST.ArrayExpression = 'ArrayExpression';
 
 //Make AST aware that certain kinds of constant tokens represent predefined literals.
 AST.prototype.constants = {
@@ -281,6 +338,11 @@ ASTCompiler.prototype.recurse = function(ast) {
       break;
     case AST.Literal:
       return this.escape(ast.value);
+    case AST.ArrayExpression:
+      var elements = _.map(ast.elements, _.bind(function(element) {
+        return this.recurse(element);
+      }, this));
+      return '[' + elements.join(',') + ']';
   }
 };
 
