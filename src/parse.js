@@ -53,12 +53,12 @@ Lexer.prototype.lex = function(text) {
   while (this.index < this.text.length) {
     this.character = this.text.charAt(this.index);
     if (this.isNumber(this.character) ||
-        (this.character === '.' && this.isNumber(this.peek()))) {
+        (this.is('.') && this.isNumber(this.peek()))) {
       //Delegate to helper method readNumber.
       this.readNumber();
-    } else if (this.character === '"'|| this.character === '\'') {
+    } else if (this.is('\'"')) {
       this.readString(this.character);
-    } else if (this.character === '[' || this.character === ']' || this.character === ',') {
+    } else if (this.is('[],{}:')) {
       this.tokens.push({
         text: this.character
       });
@@ -160,10 +160,16 @@ Lexer.prototype.readIdentifier = function() {
     this.index++;
   }
 
-  var token = {text: text};
+  var token = {
+    text: text,
+    identifier: true
+  };
   this.tokens.push(token);
 };
 
+Lexer.prototype.is = function(characters) {
+  return characters.indexOf(this.character) >= 0;
+};
 
 Lexer.prototype.isIdentifier = function(character) {
   return (character >= 'a' && character <= 'z') ||
@@ -231,6 +237,8 @@ some other constant from our previous implementation.
 AST.prototype.primary = function() {
   if (this.expect('[')) {
     return this.arrayDeclaration();
+  } else if (this.expect('{')) {
+    return this.objectDeclaration();
   } else if (this.constants.hasOwnProperty(this.tokens[0].text)) {
     return this.constants[this.consume().text];
   } else {
@@ -261,9 +269,22 @@ AST.prototype.peek = function(e) {
   }
 };
 
+AST.prototype.consume = function(e) {
+  var token = this.expect(e);
+  if (!token) {
+    throw 'Unexpected. Expecting: ' + e;
+  }
+  return token;
+};
+
+
 AST.prototype.constant = function() {
   // return {type: AST.Literal, value: this.tokens[0].value};
   return {type: AST.Literal, value: this.consume().value};
+};
+
+AST.prototype.identifier = function() {
+  return {type: AST.Identifier, name: this.consume().text};
 };
 
 /*
@@ -284,12 +305,25 @@ AST.prototype.arrayDeclaration = function() {
   return {type: AST.ArrayExpression, elements: elements};
 };
 
-AST.prototype.consume = function(e) {
-  var token = this.expect(e);
-  if (!token) {
-    throw 'Unexpected. Expecting: ' + e;
+AST.prototype.objectDeclaration = function() {
+  var properties = [];
+
+  if (!this.peek('}')) {
+    do {
+      var property = {type: AST.Property};
+      if (this.peek().identifier) {
+        property.key = this.identifier();
+      } else {
+        property.key = this.constant();
+      }
+      this.consume(':');
+      property.value = this.primary();
+      properties.push(property);
+    } while (this.expect(','));
   }
-  return token;
+
+  this.consume('}');
+  return {type: AST.ObjectExpression, properties: properties};
 };
 
 /*
@@ -300,6 +334,9 @@ what kind of JS code to generate.
 AST.Program = 'Program';
 AST.Literal = 'Literal';
 AST.ArrayExpression = 'ArrayExpression';
+AST.ObjectExpression = 'ObjectExpression';
+AST.Property = 'Property';
+AST.Identifier = 'Identifier';
 
 //Make AST aware that certain kinds of constant tokens represent predefined literals.
 AST.prototype.constants = {
@@ -343,6 +380,18 @@ ASTCompiler.prototype.recurse = function(ast) {
         return this.recurse(element);
       }, this));
       return '[' + elements.join(',') + ']';
+    case AST.ObjectExpression:
+      var properties = _.map(ast.properties, _.bind(function(property) {
+        var key;
+        if (property.key.type === AST.Identifier) {
+          key = property.key.name;
+        } else {
+          key = this.escape(property.key.value);
+        }
+        var value = this.recurse(property.value);
+        return key + ':' + value;
+      }, this));
+      return '{' + properties.join(',') + '}';
   }
 };
 
